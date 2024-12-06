@@ -6,7 +6,7 @@
 #include <vector>
 
 int main() {
-  std::ifstream file("test_input.txt");
+  std::ifstream file("input.txt");
   if (!file.is_open()) {
     std::cerr << "Error: Could not open the file.\n";
     return 1;
@@ -97,19 +97,16 @@ int main() {
   //   std::cout << "Left " << " : " << left_side[i] << " ";
   //   std::cout << "Right " << " : " << right_side[i] << "\n";
   // }
-
-  // Parallel sort of 2 arrays at the same time ?
-  q.parallel_for(num_lines_sq, [=](sycl::id<1> idx) {
-     //  printf("Started left\n");
-     //  printf("L: %i\n", left_side[idx]);
-     int found_first = false;
-     int a;
-     int l;
-     int n{(int)num_lines_sq};
-     for (int k = 2; k <= n; k *= 2) {
-       for (int j = k / 2; j > 0; j /= 2) {
+  int n{(int)num_lines_sq};
+  for (int k = 2; k <= n; k *= 2) {
+    for (int j = k / 2; j > 0; j /= 2) {
+      q.parallel_for(num_lines_sq, [=](sycl::id<1> idx) {
+         //  printf("Started left\n");
+         //  printf("L: %i\n", left_side[idx])
          for (int i = 0; i < n; i++) {
+           int l;
            l = i ^ j;
+           int a;
            if (l > i) {
              if (((i & k) == 0) && (left_side[i] > left_side[l]) ||
                  ((i & k) != 0) && (left_side[i] < left_side[l])) {
@@ -117,26 +114,6 @@ int main() {
                left_side[i] = left_side[l];
                left_side[l] = a;
              }
-           }
-         }
-       }
-     }
-   }).wait();
-
-  printf("Finished left\n");
-
-  q.parallel_for(num_lines_sq, [=](sycl::id<1> idx) {
-     //  printf("Started right\n");
-     //  printf("R: %i ", right_side[idx]);
-     int found_first = false;
-     int a;
-     int l;
-     int n{(int)num_lines_sq};
-     for (int k = 2; k <= n; k *= 2) {
-       for (int j = k / 2; j > 0; j /= 2) {
-         for (int i = 0; i < n; i++) {
-           l = i ^ j;
-           if (l > i) {
              if (((i & k) == 0) && (right_side[i] > right_side[l]) ||
                  ((i & k) != 0) && (right_side[i] < right_side[l])) {
                a = right_side[i];
@@ -145,11 +122,12 @@ int main() {
              }
            }
          }
-       }
-     }
-   }).wait();
+       }).wait();
+    }
+  }
 
-  printf("Finished right\n");
+  printf("Finished left\n");
+
   q.parallel_for(num_lines_sq, [=](sycl::id<1> idx) {
      results[idx] = std::abs(left_side[idx] - right_side[idx]);
      //  printf(" %i - %i = %i\n", left_side[idx], right_side[idx],
@@ -164,6 +142,15 @@ int main() {
     std::cout << "Right: " << right_side[i] << "\n";
     sum += results[i];
     r += std::abs(left_side[i] - right_side[i]);
+  }
+
+  for (size_t i = 1; i < num_lines_sq; ++i) {
+    if (not(left_side[i - 1] <= left_side[i])) {
+      printf("Left Error %i < %i\n", left_side[i - 1], left_side[i]);
+    }
+    if (not(right_side[i - 1] <= right_side[i])) {
+      printf("Right Error %i < %i\n", right_side[i - 1], right_side[i]);
+    }
   }
 
   printf("Result: %i\n", sum);
